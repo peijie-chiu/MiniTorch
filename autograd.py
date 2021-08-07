@@ -12,6 +12,7 @@ values = []
 def Forward():
     for c in ops: c.forward()
 
+
 # Global backward    
 def Backward(loss):
     for c in ops:
@@ -26,7 +27,7 @@ def Backward(loss):
 # SGD
 def SGD(lr):
     for p in params:
-        p.top = p.top - lr*p.grad
+        p.top = p.top - lr * p.grad
 
 
 def init_momentum():
@@ -164,6 +165,7 @@ class accuracy:
         self.top = np.float32(np.argmax(self.x.top,axis=1)==truey)
 
     def backward(self):
+        # There is no need to back-propagate accuracy
         pass
 
 # Downsample by 2    
@@ -202,7 +204,7 @@ class conv2:
         """
         Parameters:
         x: a input tensor with size of B, H, W, C1
-        k: a multi-channel convolutional kernel with size of K1, K2, C1, C2
+        k: a multi-channel convolutional kernel with size of KH, KW, C1, C2
         s: controls the stride of the convolution
         """
         ops.append(self)
@@ -211,64 +213,73 @@ class conv2:
         self.s = s
 
     def im2col_indices(self):
-        _, H, W, C1 = self.x.top.shape
-        KH, KW, _, _ = self.k.top.shape
+        # assert (self.H - self.KH) % self.s  == 0, 'height does not work'
+        # assert (self.W - self.KW) % self.s  == 0, 'width does not work'
 
-        assert (H - KH) % self.s  == 0, 'height does not work'
-        assert (W - KW) % self.s  == 0, 'width does not work'
-
-        H_out = H - KH + 1
-        W_out = W - KW + 1
-
-        i0 = np.tile(np.repeat(np.arange(KH), KW), C1)
-        i1 = self.s * np.repeat(np.arange(H_out), W_out)
+        i0 = np.tile(np.repeat(np.arange(self.KH), self.KW), self.C1)
+        i1 = self.s * np.repeat(np.arange(self.H_out), self.W_out)
         i = i0.reshape(-1, 1) + i1.reshape(1, -1)
 
-        j0 = np.tile(np.arange(KW), KH * C1)
-        j1 = self.s * np.tile(np.arange(W_out), H_out)
+        j0 = np.tile(np.arange(self.KW), self.KH * self.C1)
+        j1 = self.s * np.tile(np.arange(self.W_out), self.H_out)
         j = j0.reshape(-1, 1) + j1.reshape(1, -1)
 
-        m = np.repeat(np.arange(C1), KH * KW).reshape(-1, 1)
+        m = np.repeat(np.arange(self.C1), self.KH * self.KW).reshape(-1, 1)
 
         return i, j, m
 
     def forward(self):
-        _, H, W, _ = self.x.top.shape
-        KH, KW, _, C2 = self.k.top.shape
-
-        H_out = H - KH + 1
-        W_out = W - KW + 1
+        _, self.H, self.W, self.C1 = self.x.top.shape
+        self.KH, self.KW, _, self.C2 = self.k.top.shape
+        self.H_out = (self.H - self.KH) // self.s + 1
+        self.W_out = (self.W - self.KW) // self.s + 1
 
         i, j, m = self.im2col_indices()
     
-        # xcrop = self.x.top.transpose(0,3,1,2)[:, m, i, j]
+        # xcrop = self.x.top.transpose(0,3,1,2)[:, m, i, j] 
         # kcrop = self.k.top.transpose(3,2,0,1).reshape(C2, -1)
-
         # self.top = kcrop.dot(xcrop).transpose(1, 0, 2)
         # self.top = self.top.reshape([-1, C2, H_out, W_out]).transpose(0, 2, 3, 1)
 
-        x_crop = self.x.top[:, i, j, m]
-        k_crop = self.k.top.reshape(-1, C2)
-        self.top = k_crop.T.dot(x_crop)
-        # print(top.shape)
-        self.top = self.top.transpose(0,2,1).reshape(-1, H_out, W_out, C2)
+        x_crop = self.x.top[:, i, j, m] # Bx(KHxKWxC_in)x(H_outxW_out)
+        k_crop = self.k.top.transpose(3, 0, 1, 2).reshape(self.C2, -1)
+        self.top = k_crop.dot(x_crop)
+        self.top = self.top.transpose(0, 2, 1).reshape(-1, self.H_out, self.W_out, self.C2)
         
     def backward(self):
+         ygrad = self.grad.reshape([-1, self.C2])
+
          if self.x in ops or self.x in params: 
-             B, H, W, C1 = self.x.grad.shape
-             K1, K2, C1, C2 = self.k.grad.shape
+             xgrad = np.zeros_like(self.x.top)
+             i, j, m = self.im2col_indices()
+             kcrop = self.k.top.reshape(-1, self.C2)
+             xcrop = kcrop.dot(ygrad.T)
+             xcrop = xcrop.reshape(self.C1*self.KH*self.KW, self.H_out*self.W_out, -1).transpose(2,0,1)
+             np.add.at(xgrad, (slice(None),i,j,m), xcrop)
 
-             x_grad = np.zeros_like(self.x.grad)
-             k_grad = np.zeros_like(self.k.grad)
-        
+             self.x.grad += xgrad
+
+             x_grad = np.zeros_like(self.x.top)
+             for i in range(self.KH):
+                 for j in range(self.KW):
+                     xij = np.matmul(ygrad, self.k.top[i,j,:,:].T)
+                     xij = np.reshape(xij, [-1, self.H_out, self.W_out, self.C1])
+                     x_grad[:,i:(self.H_out+i),j:(self.W_out+j),:] += xij
+
+             print(self.x.grad.all() == x_grad.all())
+            
          if self.k in ops or self.k in params:
-             B, H, W, C1 = self.x.top.shape
-             K1, K2, C1, C2 = self.k.grad.shape
+             i, j, m = self.im2col_indices()
+             xcrop = self.x.top[:,i,j,m].transpose(1,2,0).reshape(self.KH * self.KW * self.C1, -1)
+             kgrad = xcrop.dot(ygrad).T.reshape(self.k.top.shape)
+             
+             self.k.grad += kgrad
 
-# x = Value()
-# x.set(np.arange(1, 97, 1).reshape([2, 4, 4, 3]))
-# k = Param()
-# k.set(np.arange(1, 25, 1).reshape([2, 2, 3, 2]))
+             k_grad = np.zeros_like(self.k.top)
+             for i in range(self.KH):
+                 for j in range(self.KW):
+                     xij = self.x.top[:, i:(self.H_out+i), j:(self.W_out+j),:]
+                     xij = xij.reshape(-1, self.C1)
+                     k_grad[i,j,:,:] += np.matmul(xij.T, ygrad)
 
-# conv = conv2(x, k)
-# conv.forward()
+             print(k_grad.all() == kgrad.all())
