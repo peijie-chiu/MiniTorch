@@ -36,7 +36,6 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 </p>
 
 
-
 ## References
 - [Automatic differentiation in PyTorch](https://openreview.net/pdf?id=BJJsrmfCZ)
 
