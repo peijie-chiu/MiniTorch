@@ -6,6 +6,17 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 - this is an extremely excellent way to understand how neural networks (also Pytorch/Tensorflow) work (Not everyone has this opportunity) ! 
 - This code is for learning purpose and is not allowed to disclose to any unauthorized user !
 
+### Update
+1. The code architecture changes a little bit for easier unstanding and usage. And this is almost how **Pytorch** is constructed ! We build a **nn** package for building a neural network ! 
+2. The **container.py** contains the basic module of the the **layer.py, loss.py**. For any custom Layer or Loss functions, we can always remake use of the basic functions in Autograd.py. For each time, we only need to rewrite the forward function in **Module** class to customize it.
+3. The **layer.py** wraps all the high-level layer that can be called directly, e.g., Linear, Conv2d, Dropout, Relu, etc. We can all easily customize new layers by inheritate **Module** class and overwrite **forward** function only.
+4. The **autograd.py** contains the basic operations we will use to build the computation graph, e.g., Covn, Matmul, Add, Relu, Dropout, etc. We can even implement more as we need.
+5. The **solver.py** contains the optimizers used to optimize the neural network, e.g., vanilla SGD, Momentum, etc. Implementing all kinds of optimizers is very useful for us to understand how neural networks update and converge. 
+6. The **loss.py** contains the customized loss function. 
+7. The **graph.py** contains the graph we build for the neural network.
+
+
+
 ## Computation Graph
 1. Build a direct Computation Graph with a (python) list nodes: G=[n_1, n_2, n_3, ...]
 2. Eeah node is an **"Object"** that is one of three kinds:
