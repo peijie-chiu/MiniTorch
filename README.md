@@ -5,7 +5,7 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 <!-- </font>  -->
 
 ## Computation Graph
-![alt text](imgs/computation graph.png)
+![Alt text](imgs/computation graph.png?raw=true "Title")
 
 ## References
 - [Automatic differentiation in PyTorch](https://openreview.net/pdf?id=BJJsrmfCZ)
