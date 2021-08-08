@@ -1,5 +1,6 @@
 ########################################################
-# An Autograd Engine mimicing the Pytorch/Tensorflow
+# An Autograd Engine mimicing the Pytorch/Tensorflow to 
+# do automatic differentiation
 ########################################################
 import numpy as np
 
@@ -21,7 +22,8 @@ def Backward(loss):
         c.grad = np.zeros_like(c.top)
 
     loss.grad = np.ones_like(loss.top)
-    for c in ops[::-1]: c.backward() 
+    for c in ops[::-1]: 
+        c.backward() 
 
 
 # SGD
@@ -140,7 +142,8 @@ class smaxloss:
         y = y - np.amax(y,axis=1,keepdims=True)
         yE = np.exp(y)
         yS = np.sum(yE,axis=1,keepdims=True)
-        y = y - np.log(yS); yE = yE / yS
+        y = y - np.log(yS)
+        yE = yE / yS
 
         truey = np.int64(self.y.top)
         self.top = -y[range(len(truey)),truey]
@@ -168,19 +171,21 @@ class accuracy:
         # There is no need to back-propagate accuracy
         pass
 
-# Downsample by 2    
-class down2:
-    def __init__(self,x):
+
+# Downsample by a factor  
+class down:
+    def __init__(self,x,factor):
         ops.append(self)
         self.x = x
+        self.factor = factor
         
     def forward(self):
-        self.top = self.x.top[:,::2,::2,:]
+        self.top = self.x.top[:,::self.factor,::self.factor,:]
 
     def backward(self):
         if self.x in ops or self.x in params:
             grd = np.zeros_like(self.x.top)
-            grd[:,::2,::2,:] = self.grad
+            grd[:,::self.factor,::self.factor,:] = self.grad
             self.x.grad = self.x.grad + grd
 
 
@@ -236,15 +241,10 @@ class conv2:
 
         i, j, m = self.im2col_indices()
     
-        # xcrop = self.x.top.transpose(0,3,1,2)[:, m, i, j] 
-        # kcrop = self.k.top.transpose(3,2,0,1).reshape(C2, -1)
-        # self.top = kcrop.dot(xcrop).transpose(1, 0, 2)
-        # self.top = self.top.reshape([-1, C2, H_out, W_out]).transpose(0, 2, 3, 1)
-
         x_crop = self.x.top[:, i, j, m] # Bx(KHxKWxC_in)x(H_outxW_out)
-        k_crop = self.k.top.transpose(3, 0, 1, 2).reshape(self.C2, -1)
-        self.top = k_crop.dot(x_crop)
-        self.top = self.top.transpose(0, 2, 1).reshape(-1, self.H_out, self.W_out, self.C2)
+        k_crop = self.k.top.reshape(-1, self.C2)
+        self.top = x_crop.transpose(0,2,1).dot(k_crop)
+        self.top = self.top.reshape(-1, self.H_out, self.W_out, self.C2)
         
     def backward(self):
          ygrad = self.grad.reshape([-1, self.C2])
@@ -258,15 +258,6 @@ class conv2:
              np.add.at(xgrad, (slice(None),i,j,m), xcrop)
 
              self.x.grad += xgrad
-
-             x_grad = np.zeros_like(self.x.top)
-             for i in range(self.KH):
-                 for j in range(self.KW):
-                     xij = np.matmul(ygrad, self.k.top[i,j,:,:].T)
-                     xij = np.reshape(xij, [-1, self.H_out, self.W_out, self.C1])
-                     x_grad[:,i:(self.H_out+i),j:(self.W_out+j),:] += xij
-
-             print(self.x.grad.all() == x_grad.all())
             
          if self.k in ops or self.k in params:
              i, j, m = self.im2col_indices()
@@ -274,12 +265,3 @@ class conv2:
              kgrad = xcrop.dot(ygrad).T.reshape(self.k.top.shape)
              
              self.k.grad += kgrad
-
-             k_grad = np.zeros_like(self.k.top)
-             for i in range(self.KH):
-                 for j in range(self.KW):
-                     xij = self.x.top[:, i:(self.H_out+i), j:(self.W_out+j),:]
-                     xij = xij.reshape(-1, self.C1)
-                     k_grad[i,j,:,:] += np.matmul(xij.T, ygrad)
-
-             print(k_grad.all() == kgrad.all())
