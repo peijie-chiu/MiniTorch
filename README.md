@@ -11,15 +11,17 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
      - Parameter
      - Operation
 3. Eech of these statements adds a node to the list nodes
-![Alt text](imgs/Nodes.png?raw=true "Title")
 4. Operation nodes are added by matmul, tanh, etc..., and are linked to previous nodes that appears before it in the list as input
+![Alt text](imgs/Nodes.png?raw=true "Title")
 5. Every node object is going to have a member element n.top which will be the value of its "output" 
    - For input and parameter nodes, these top values will just be set (or updated by SGD)
    - For operation nodes, the top values will be computed from the top values of their inputs
-6. In forward, we go through the list of node in order and compute the values of all operation nodes
+5. In forward, we go through the list of node in order and compute the values of all operation nodes
 7. For each "operation" class, we define a function **backward**. All Operation and Parameter nodes will also have an element **grad**
+8. In Backward, we go through the list of node in a reverse order and call the **backward** function for each operation node to compute the gradient automatically (We only computes grads for params and ops)
 ![Alt text](imgs/ForwardBackWard.png?raw=true "Title")
-8.  
+9. For each Operation, we only need to specify how **forward** and **backward** is corerctly constructed. 
+
 ![Alt text](imgs/comGraph.png?raw=true "Title")
 
 
