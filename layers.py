@@ -162,10 +162,3 @@ class Accuracy():
         acc = autograd.mean(acc)
 
         return acc
-
-# main = Sequential([Conv2d(1,2,3, 1),
-#                    RELU(),
-#                    Linear(400, 10)
-#                 ])
-
-# print(main)
