@@ -35,6 +35,13 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
      <img src="imgs/comGraph.png" width="500px" height="500px">
 </p>
 
+## Code Architecture
+1. The Finalized **Automatic Differentiation Engine** is in **Autograd.py** 
+2. The **layers.py** is created to wrap higher level layers like Pytorch/Tensorflow
+     - e.g., Linear Layer, Convolution Layer, Relu Layer, etc, to ease usage 
+     - We also create **Container** like Pytorch/Tensorflow to formulate the Sequential Model
+3. **mnist MPL.ipynb** is used to demo a multi-layer feedforward nerural network
+4. **mnist ConvNet.ipynb** is used to demo a convolutional nerural network
 
 ## References
 - [Automatic differentiation in PyTorch](https://openreview.net/pdf?id=BJJsrmfCZ)
