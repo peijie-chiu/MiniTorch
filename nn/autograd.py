@@ -3,49 +3,11 @@
 # do automatic differentiation
 ########################################################
 import numpy as np
-
-# Global list of different kinds of components
-ops = []
-params = []
-values = []
-
-# Global forward
-def Forward():
-    for c in ops: c.forward()
-
-
-# Global backward    
-def Backward(loss):
-    for c in ops:
-        c.grad = np.zeros_like(c.top)
-    for c in params:
-        c.grad = np.zeros_like(c.top)
-
-    loss.grad = np.ones_like(loss.top)
-    for c in ops[::-1]: 
-        c.backward() 
-
-
-# SGD
-def SGD(lr):
-    for p in params:
-        p.top = p.top - lr * p.grad
-
-
-def init_momentum():
-    for p in params:
-        p.momentum=np.zeros_like(p.top)
-
-
-# Heavy-ball method
-def momentum(lr,mom=0.9):
-    for p in params:
-        p.momentum=p.grad+mom*p.momentum
-        p.top=p.top-lr*p.momentum
+from nn.graph import values, params, ops
 
 
 # Values (Inputs)
-class Value:
+class Value():
     def __init__(self):
         values.append(self)
 
@@ -53,7 +15,7 @@ class Value:
         self.top = np.float32(value).copy()
 
 # Parameters (Weights we want to learn)
-class Param:
+class Param():
     def __init__(self):
         params.append(self)
 
@@ -62,11 +24,22 @@ class Param:
 
 
 ################## Operations ##################
+class Operation():
+    def __init__(self):
+        if self not in ops:
+            ops.append(self)
+
+    def forward(self):
+        pass
+
+    def backward(self):
+        pass
+
 
 # Add layer (x + y) where y is same shape as x or is 1-D
-class add:
+class Add(Operation):
     def __init__(self,x,y):
-        ops.append(self)
+        super().__init__()
         self.x = x
         self.y = y
 
@@ -86,9 +59,9 @@ class add:
 
 
 # Matrix multiply (fully-connected layer)
-class matmul:
-    def __init__(self,x,y):
-        ops.append(self)
+class Matmul(Operation):
+    def __init__(self, x, y):
+        super().__init__()
         self.x = x
         self.y = y
 
@@ -103,7 +76,7 @@ class matmul:
 
 
 # Rectified Linear Unit Activation            
-class RELU:
+class RELU(Operation):
     def __init__(self,x):
         ops.append(self)
         self.x = x
@@ -117,9 +90,9 @@ class RELU:
 
 
 # Reduce to mean
-class mean:
+class Mean(Operation):
     def __init__(self,x):
-        ops.append(self)
+        super().__init__()
         self.x = x
 
     def forward(self):
@@ -131,9 +104,9 @@ class mean:
 
 
 # Soft-max + Loss (per-row / training example)
-class smaxloss:
+class Smaxloss(Operation):
     def __init__(self,pred,gt):
-        ops.append(self)
+        super().__init__()
         self.x = pred
         self.y = gt
 
@@ -157,9 +130,9 @@ class smaxloss:
 
 
 # Compute accuracy (for display, not differentiable)        
-class accuracy:
+class Accuracy(Operation):
     def __init__(self,pred,gt):
-        ops.append(self)
+        super().__init__()
         self.x = pred
         self.y = gt
 
@@ -173,9 +146,9 @@ class accuracy:
 
 
 # Downsample by a factor  
-class down:
+class Down(Operation):
     def __init__(self,x,factor):
-        ops.append(self)
+        super().__init__()
         self.x = x
         self.factor = factor
         
@@ -190,9 +163,9 @@ class down:
 
 
 # Flatten (conv to fc)
-class flatten:
+class Flatten(Operation):
     def __init__(self,x):
-        ops.append(self)
+        super().__init__()
         self.x = x
         
     def forward(self):
@@ -203,19 +176,75 @@ class flatten:
             self.x.grad = self.x.grad + np.reshape(self.grad,self.x.top.shape)
 
 
-# Convolution Layer
-class conv2:
-    def __init__(self, x, k, s=1):
+# dropout layer
+class Dropout(Operation):
+    def __init__(self, x, p=0.5):
+        super().__init__()
+        self.x = x
+        self.p = p
+        
+    def forward(self):
+        self.r = np.random.binomial(1, self.p, size=self.x.top.shape) / self.p
+        self.top = self.x.top * self.r
+
+    def backward(self):
+        if self.x in ops or self.x in params:
+            self.x.grad = self.x.grad + self.grad * self.r
+
+
+# 2d Maxpooling layer 
+class Maxpool2d(Operation):
+    def __init__(self, kernel_size=2, stride=2, padding=0):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+
+    def forward(self):
+        pass
+
+    def backward(self):
+        pass
+
+
+# 2d bactch normalization layer
+class BatchNorm2d(Operation):
+    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True):
+        super().__init__()
+
+    def forward(self):
+        pass
+
+    def backward(self):
+        pass
+
+
+# 2d instance normalization layer
+class InstanceNorm2d(Operation):
+    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True):
+        super().__init__()
+
+    def forward(self):
+        pass
+
+    def backward(self):
+        pass
+
+
+# 2d Convolution Layer
+class Conv2d(Operation):
+    def __init__(self, x, k, s=1, pad=0):
         """
         Parameters:
         x: a input tensor with size of B, H, W, C1
         k: a multi-channel convolutional kernel with size of KH, KW, C1, C2
         s: controls the stride of the convolution
         """
-        ops.append(self)
+        super().__init__()
         self.x = x
         self.k = k
         self.s = s
+        self.pad = pad
 
     def im2col_indices(self):
         # assert (self.H - self.KH) % self.s  == 0, 'height does not work'
@@ -234,14 +263,14 @@ class conv2:
         return i, j, m
 
     def forward(self):
-        _, self.H, self.W, self.C1 = self.x.top.shape
+        self.B, self.H, self.W, self.C1 = self.x.top.shape
         self.KH, self.KW, _, self.C2 = self.k.top.shape
-        self.H_out = (self.H - self.KH) // self.s + 1
-        self.W_out = (self.W - self.KW) // self.s + 1
+        self.H_out = (self.H - self.KH + 2 * self.pad) // self.s + 1
+        self.W_out = (self.W - self.KW + 2 * self.pad) // self.s + 1
 
         i, j, m = self.im2col_indices()
-    
-        x_crop = self.x.top[:, i, j, m] # Bx(KHxKWxC_in)x(H_outxW_out)
+        x_padded = np.pad(self.x.top, ((0, 0), (self.pad, self.pad), (self.pad, self.pad), (0, 0)), mode='constant')
+        x_crop = x_padded[:, i, j, m] # Bx(KHxKWxC_in)x(H_outxW_out)
         k_crop = self.k.top.reshape(-1, self.C2)
         self.top = x_crop.transpose(0,2,1).dot(k_crop)
         self.top = self.top.reshape(-1, self.H_out, self.W_out, self.C2)
@@ -250,18 +279,23 @@ class conv2:
          ygrad = self.grad.reshape([-1, self.C2])
 
          if self.x in ops or self.x in params: 
-             xgrad = np.zeros_like(self.x.top)
+             H_padded, W_padded = self.H + 2*self.pad, self.W + 2*self.pad
+             xgrad = np.zeros((self.B, H_padded, W_padded, self.C1))
              i, j, m = self.im2col_indices()
              kcrop = self.k.top.reshape(-1, self.C2)
              xcrop = kcrop.dot(ygrad.T)
-             xcrop = xcrop.reshape(self.C1*self.KH*self.KW, self.H_out*self.W_out, -1).transpose(2,0,1)
+             xcrop = xcrop.reshape(self.C1*self.KH*self.KW, -1, self.B).transpose(2,0,1)
              np.add.at(xgrad, (slice(None),i,j,m), xcrop)
+
+             if not self.pad == 0:
+                xgrad = xgrad[:, self.pad:-self.pad, self.pad:-self.pad, :]
 
              self.x.grad += xgrad
             
          if self.k in ops or self.k in params:
              i, j, m = self.im2col_indices()
-             xcrop = self.x.top[:,i,j,m].transpose(1,2,0).reshape(self.KH * self.KW * self.C1, -1)
+             x_padded = np.pad(self.x.top, ((0, 0), (self.pad, self.pad), (self.pad, self.pad), (0, 0)), mode='constant')
+             xcrop = x_padded[:,i,j,m].transpose(1,2,0).reshape(self.KH * self.KW * self.C1, -1)
              kgrad = xcrop.dot(ygrad).T.reshape(self.k.top.shape)
              
              self.k.grad += kgrad
