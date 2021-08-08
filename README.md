@@ -5,7 +5,24 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 <!-- </font>  -->
 
 ## Computation Graph
+1. Build a direct Computation Graph with a (python) list nodes: G=[n_1, n_2, n_3, ...]
+2. Eeah node is an **"Object"** that is one of three kinds:
+     - Input
+     - Parameter
+     - Operation
+3. Eech of these statements adds a node to the list nodes
+![Alt text](imgs/Nodes.png?raw=true "Title")
+4. Operation nodes are added by matmul, tanh, etc..., and are linked to previous nodes that appears before it in the list as input
+5. Every node object is going to have a member element n.top which will be the value of its "output" 
+   - For input and parameter nodes, these top values will just be set (or updated by SGD)
+   - For operation nodes, the top values will be computed from the top values of their inputs
+6. In forward, we go through the list of node in order and compute the values of all operation nodes
+7. For each "operation" class, we define a function **backward**. All Operation and Parameter nodes will also have an element **grad**
+![Alt text](imgs/ForwardBackWard.png?raw=true "Title")
+8.  
 ![Alt text](imgs/comGraph.png?raw=true "Title")
+
+
 
 ## References
 - [Automatic differentiation in PyTorch](https://openreview.net/pdf?id=BJJsrmfCZ)
