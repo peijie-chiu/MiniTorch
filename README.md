@@ -6,14 +6,17 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 - this is an extremely excellent way to understand how neural networks (also Pytorch/Tensorflow) work (Not everyone has this opportunity) ! 
 - This code is for learning purpose and is not allowed to disclose to any unauthorized user !
 
-### Update
+### Code Architecture(Updated)
 1. The code architecture changes a little bit for easier unstanding and usage. And this is almost how **Pytorch** is constructed ! We build a **nn** package for building a neural network ! 
 2. The **container.py** contains the basic module of the the **layer.py, loss.py**. For any custom Layer or Loss functions, we can always remake use of the basic functions in Autograd.py. For each time, we only need to rewrite the forward function in **Module** class to customize it.
 3. The **layer.py** wraps all the high-level layer that can be called directly, e.g., Linear, Conv2d, Dropout, Relu, etc. We can all easily customize new layers by inheritate **Module** class and overwrite **forward** function only.
-4. The **autograd.py** contains the basic operations we will use to build the computation graph, e.g., Covn, Matmul, Add, Relu, Dropout, etc. We can even implement more as we need.
-5. The **solver.py** contains the optimizers used to optimize the neural network, e.g., vanilla SGD, Momentum, etc. Implementing all kinds of optimizers is very useful for us to understand how neural networks update and converge. 
-6. The **loss.py** contains the customized loss function. 
-7. The **graph.py** contains the graph we build for the neural network.
+4. The **model.py** contains the customized Neural Network based on the layers in **layer.py** 
+5. The **autograd.py** contains the basic operations we will use to build the computation graph, e.g., Covn, Matmul, Add, Relu, Dropout, etc. We can even implement more as we need.
+6. The **solver.py** contains the optimizers used to optimize the neural network, e.g., vanilla SGD, Momentum, etc. Implementing all kinds of optimizers is very useful for us to understand how neural networks update and converge. 
+7. The **loss.py** contains the customized loss function. 
+8. The **graph.py** contains the graph we build for the neural network.
+9. The **main.py** contains the argparse input which help us to run the experiment with adjusted hyperparameters.
+10. The **mnist.ipynb** contains the script to run the experiment
 
 
 
@@ -48,14 +51,8 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
      <img src="imgs/comGraph.png" width="500px" height="500px">
 </p>
 
-## Code Architecture
-1. The Finalized **Automatic Differentiation Engine** is in **Autograd.py** 
-2. The **layers.py** is created to wrap higher level layers like Pytorch/Tensorflow
-     - e.g., Linear Layer, Convolution Layer, Relu Layer, etc, to ease usage 
-     - We also create **Container** like Pytorch/Tensorflow to formulate the Sequential Model
-3. **mnist MPL.ipynb** is used to demo a multi-layer feedforward nerural network
-4. **mnist ConvNet.ipynb** is used to demo a convolutional nerural network
 
 ## References
 - [Automatic differentiation in PyTorch](https://openreview.net/pdf?id=BJJsrmfCZ)
+- [Stanford CS231n](https://cs231n.github.io/)
 
