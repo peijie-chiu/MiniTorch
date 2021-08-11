@@ -46,7 +46,7 @@ class Linear(Module):
         return x
 
     def __str__(self):
-        return f"{self.__class__.__name__}(in_features={self.in_features}, out_features={self.out_features})"
+        return f"{self.name}(in_features={self.in_features}, out_features={self.out_features})"
 
 
 class Conv2d(Module):
@@ -84,7 +84,7 @@ class Conv2d(Module):
         return x
 
     def __str__(self):
-        return f"Conv2d(in_channels={self.in_channels}, out_channels={self.out_channels}, kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding}, bias={self.bias})"
+        return f"{self.name}(in_channels={self.in_channels}, out_channels={self.out_channels}, kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding}, bias={self.bias})"
 
 
 class RELU(Module):
@@ -95,7 +95,7 @@ class RELU(Module):
         return autograd.RELU(x)
 
     def __str__(self):
-        return f"RELU()"
+        return f"{self.name}()"
 
 
 class Flatten(Module):
@@ -106,7 +106,20 @@ class Flatten(Module):
         return autograd.Flatten(x)
 
     def __str__(self):
-        return f"Flatten()"
+        return f"{self.name}()"
+
+
+class Maxpool2d(Module):
+    def __init__(self, kernel_size=2, stride=2):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+    def forward(self, x):
+        return autograd.Maxpool2d(x, self.kernel_size, self.stride)
+
+    def __str__(self):
+        return f"{self.name}(kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding})"
 
 
 class Down(Module):
@@ -118,7 +131,7 @@ class Down(Module):
         return autograd.Down(x, self.factor)
 
     def __str__(self):
-        return f"Down(factor={self.factor})"
+        return f"{self.name}(factor={self.factor})"
 
 
 class Dropout(Module):
@@ -130,4 +143,31 @@ class Dropout(Module):
         return autograd.Dropout(x, self.p)
 
     def __str__(self):
-        return f"Dropout(p={self.p})"
+        return f"{self.name}(p={self.p})"
+
+
+class BatchNorm2d(Module):
+    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True):
+        super().__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.affine=affine
+
+        self.gamma = autograd.Param()
+        self.beta = autograd.Param()
+        self.gamma.set(np.ones((1,1,1,self.num_features)))
+        self.beta.set(np.zeros((1,1,1,self.num_features)))
+
+    def forward(self, x):
+        # if len(x.top.shape) == 4:
+        #     self.gamma.set(np.ones((1,1,1,self.num_features)))
+        #     self.beta.set(np.zeros((1,1,1,self.num_features)))
+        # else:
+        #     self.gamma.set(np.ones((1,self.num_features)))
+        #     self.beta.set(np.ones((1,self.num_features)))
+            
+        return autograd.BatchNorm2d(x, self.num_features, self.gamma, self.beta, self.eps, self.momentum, self.affine)
+
+    def __str__(self):
+        return f"{self.name}(num_features={self.num_features}, eps={self.eps}, momentum={self.momentum}, affine={self.affine})"

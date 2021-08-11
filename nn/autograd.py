@@ -4,6 +4,7 @@
 ########################################################
 import numpy as np
 from nn.graph import values, params, ops
+from nn.container import Module
 
 
 # Values (Inputs)
@@ -24,16 +25,16 @@ class Param():
 
 
 ################## Operations ##################
-class Operation():
+class Operation(Module):
     def __init__(self):
         if self not in ops:
             ops.append(self)
 
     def forward(self):
-        pass
+        raise Exception("Not Implemented")
 
     def backward(self):
-        pass
+        raise Exception("Not Implemented")
 
 
 # Add layer (x + y) where y is same shape as x or is 1-D
@@ -164,7 +165,7 @@ class Down(Operation):
 
 # Flatten (conv to fc)
 class Flatten(Operation):
-    def __init__(self,x):
+    def __init__(self, x):
         super().__init__()
         self.x = x
         
@@ -184,8 +185,13 @@ class Dropout(Operation):
         self.p = p
         
     def forward(self):
-        self.r = np.random.binomial(1, self.p, size=self.x.top.shape) / self.p
-        self.top = self.x.top * self.r
+        if self.training:
+            # Add dropout layer only in training phase
+            self.r = np.random.binomial(1, self.p, size=self.x.top.shape) / self.p
+            self.top = self.x.top * self.r
+        else:
+            # If in evaluation, the dropout layer do nothing
+            self.top = self.x.top
 
     def backward(self):
         if self.x in ops or self.x in params:
@@ -194,29 +200,95 @@ class Dropout(Operation):
 
 # 2d Maxpooling layer 
 class Maxpool2d(Operation):
-    def __init__(self, kernel_size=2, stride=2, padding=0):
+    def __init__(self, x, kernel_size=2, stride=2):
         super().__init__()
+        self.x = x
         self.kernel_size = kernel_size
         self.stride = stride
-        self.padding = padding
 
     def forward(self):
-        pass
+        B, H, W, C = self.x.top.shape
+        same_size = self.kernel_size == self.stride
+        tiles = H % self.kernel_size == 0 and W % self.kernel_size  == 0
+
+        if same_size and tiles:
+            self.x_reshaped = self.x.top.reshape(B, H // self.kernel_size, self.kernel_size,
+                         W // self.kernel_size, self.kernel_size, C) 
+            self.top = self.x_reshaped.max(axis=2).max(axis=3)
 
     def backward(self):
-        pass
+        if self.x in ops or self.x in params:
+            xgrad_reshaped = np.zeros_like(self.x_reshaped)
+            out_newaxis = self.top[:, :, np.newaxis, :, np.newaxis, :]
+            mask = (self.x_reshaped == out_newaxis)
+            dout_newaxis = self.grad[:, :, np.newaxis, :, np.newaxis, :]
+            dout_broadcast, _ = np.broadcast_arrays(dout_newaxis, xgrad_reshaped)
+            xgrad_reshaped[mask] = dout_broadcast[mask]
+            xgrad_reshaped /= np.sum(mask, axis=(2, 4), keepdims=True)
+            xgrad = xgrad_reshaped.reshape(self.x.top.shape)
+
+            self.x.grad += xgrad
 
 
 # 2d bactch normalization layer
 class BatchNorm2d(Operation):
-    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True):
+    def __init__(self, x, num_features, gamma, beta, eps=1e-5, momentum=0.1, affine=True):
         super().__init__()
+        self.x = x
+        self.num_features = num_features
+        self.gamma = gamma
+        self.beta = beta
+        self.eps = eps
+        self.momentum = momentum
+        self.affine = affine
+
+        self.moving_mean = np.zeros((1,1,1,num_features))
+        self.moving_var = np.ones((1,1,1,num_features))
 
     def forward(self):
-        pass
+        assert len(self.x.top.shape) in (2, 4)
+
+        if self.training:
+            if len(self.x.top.shape) == 4:
+                self.moving_mean = np.zeros((1,1,1,self.num_features))
+                self.moving_var = np.ones((1,1,1,self.num_features))
+                self.mu = self.x.top.mean(axis=(0,1,2), keepdims=True)
+                self.var = self.x.top.var(axis=(0,1,2), keepdims=True)
+            else:
+                self.moving_mean = np.zeros((1,self.num_features))
+                self.moving_var = np.ones((1,self.num_features))
+                self.mu = self.x.top.mean(axis=0)
+                self.var = self.x.top.var(axis=0)
+
+            self.x_norm = (self.x.top - self.mu) / np.sqrt(self.var + self.eps)
+            self.top = self.gamma.top * self.x_norm + self.beta.top
+
+            self.moving_mean = self.momentum * self.moving_mean + (1 - self.momentum) * self.mu
+            self.moving_var = self.momentum * self.moving_var + (1 - self.momentum) * self.var
+        else:
+            x_norm = (self.x.top - self.moving_mean) / np.sqrt(self.moving_var + self.eps)
+            self.top = self.gamma.top * x_norm + self.beta.top
 
     def backward(self):
-        pass
+        B, H, W, _ = self.x.top.shape
+        x_mu = self.x.top - self.mu
+        std_inv = 1. / np.sqrt(self.var + self.eps)
+        dx_norm = self.grad * self.gamma.top
+        dvar = np.sum(dx_norm * x_mu, axis=(0,1,2), keepdims=True) * -.5 * std_inv**3
+        dmu = np.sum(dx_norm * -std_inv, axis=(0,1,2), keepdims=True) + dvar * np.mean(-2. * x_mu, axis=(0,1,2), keepdims=True)
+
+        if self.x in ops or self.x in params:
+             xgrad = (dx_norm * std_inv) + (dvar * 2 * x_mu / (B*W*H)) + (dmu / (B*W*H))
+             self.x.grad += xgrad 
+
+        if self.gamma in ops or self.gamma in params:
+            gamma_grad = np.sum(self.grad * self.x_norm, axis=(0,1,2), keepdims=True)
+            self.gamma.grad += gamma_grad
+
+
+        if self.beta in ops or self.beta in params:
+            beta_grad = np.sum(self.grad, axis=(0,1,2), keepdims=True) 
+            self.beta.grad += beta_grad
 
 
 # 2d instance normalization layer

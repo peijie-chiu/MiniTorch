@@ -5,6 +5,11 @@ ops = []
 params = []
 values = []
 
+def train():
+    for c in ops: c.train()
+
+def eval():
+    for c in ops: c.eval()
 
 # Global forward
 def Forward():

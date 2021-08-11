@@ -1,6 +1,17 @@
 import nn.autograd as autograd
 from nn.container import Module
 
+class Regularization(Module):
+    def __init__(self, lmd, type='l2'):
+        super().__init__()
+
+    def forward(self):
+        pass
+
+    def backward(self):
+        pass
+
+
 # Cross Entropy of Soft-max. 
 # This is how CrossEntropyLoss in pytorch is implemented
 class SmaxCELoss(Module):

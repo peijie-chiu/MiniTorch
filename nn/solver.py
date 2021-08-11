@@ -18,7 +18,7 @@ class Solver():
         self.params = params
 
     def step(self):
-        pass
+        raise Exception("Not Implemented")
 
 
 # SGD

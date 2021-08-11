@@ -6,38 +6,50 @@
 # This is the basic class for all the modules on layer.py, loss.py
 class Module():
     def __init__(self):
-        pass
+        self.name = self.__class__.__name__
     
     def __call__(self, *params):
         return self.forward(*params)
 
     def forward(self, *params):
-        pass
+        raise Exception("Not Implemented")
+
+    def backward(self, *params):
+        raise Exception("Not Implemented")
+    
+    def train(self, mode=True):
+        self.training = mode
+
+    def eval(self):
+        return self.train(False)
 
 
 # Sequential Model
-class Sequential():
-    def __init__(self, *layers):
-        self.names = []
+class Sequential(Module):
+    def __init__(self, *modules, name='main'):
+        super().__init__()
+        self.name = name
+        self.modules = []
         self.layers = []
-        if layers is not None:
-            self.layers.extend(*layers)
-            self.names.extend([l for l in self.layers])
+        
+        if modules:
+            self.modules.extend(*modules)
 
     def __call__(self, x):
-        for layer in self.layers:
-            x = layer(x)
-            self.names.append(layer.__class__.__name__)
+        return self.forward(x)
+
+    def forward(self, x):
+        for m in self.modules:
+            x = m(x)
 
         return x
-
+    
     def __str__(self):
-        info = 'Sequential(\n'
-        for i, n in enumerate(self.names):
-            info += f"  ({i}) {n}\n" 
+        info = f'({self.name}) Sequential(\n'
+        for i, m in enumerate(self.modules):
+            info += f"  ({i}) {m}\n" 
         info += ')'
         return info
 
-    def add_module(self, layer):
-        self.layers.append(layer)
-        self.names.append(layer.__class__.__name__)
+    def add_module(self, module):
+        self.modules.append(module)
