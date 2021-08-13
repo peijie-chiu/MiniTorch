@@ -1,9 +1,12 @@
 import nn.autograd as autograd
 from nn.container import Module
 
+
 class Regularization(Module):
     def __init__(self, lmd, type='l2'):
         super().__init__()
+        self.lmd = lmd
+        self.type = type
 
     def forward(self):
         pass

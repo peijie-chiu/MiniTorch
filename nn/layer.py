@@ -119,7 +119,7 @@ class Maxpool2d(Module):
         return autograd.Maxpool2d(x, self.kernel_size, self.stride)
 
     def __str__(self):
-        return f"{self.name}(kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding})"
+        return f"{self.name}(kernel_size={self.kernel_size}, stride={self.stride})"
 
 
 class Down(Module):

@@ -2,10 +2,7 @@ import os
 import argparse
 import numpy as np
 from os.path import normpath as fn # Fix Linux/Windows path issue
-
 import sys
-
-from numpy.core.defchararray import mod
 sys.path.append("nn") # add the nn module into system path
 
 import nn.layer as layer
@@ -49,7 +46,7 @@ def train(args, model, train_dl, val_dl, loss_func, optimizer):
             vacc += acc.top
             vloss += criterion.top
         vloss, vacc = vloss / viter, vacc / viter * 100
-        print("%09d: #### %d Epochs: Val Loss = %.3e, Accuracy = %.2f%%" % (niter,ep,vloss,vacc))
+        print("%06d: #### %d Epochs: Val Loss = %.3e, Accuracy = %.2f%%" % (niter,ep,vloss,vacc))
 
         if ep == args.epochs:
             break
@@ -70,11 +67,14 @@ def train(args, model, train_dl, val_dl, loss_func, optimizer):
             if niter % args.log_interval == 0:
                 avg_loss = avg_loss / args.log_interval
                 avg_acc = avg_acc / args.log_interval * 100
-                print("%09d: Training Loss = %.3e, Accuracy = %.2f%%" % (niter,avg_loss,avg_acc))
+                print("%06d: Training Loss = %.3e, Accuracy = %.2f%%" % (niter,avg_loss,avg_acc))
                 avg_loss, avg_acc = 0., 0.
 
             graph.Backward(criterion)
-            optimizer.step()
+            if args.solver == 'Adam':
+                optimizer.step(niter)
+            else:
+                optimizer.step()
         
 
 def test(args, model, test_lb):
@@ -104,7 +104,7 @@ def options():
     train_parser.add_argument('--epochs', type=int, help='number of epochs to train')
     train_parser.add_argument('--batch-size', type=int, help='batch size to train')
     train_parser.add_argument('--lr', type=float, help='learning rate used for training')
-    train_parser.add_argument('--solver', type=str, choices=['SGD', 'Momentum', 'Nesterov', 'Adam', 'RMSprop', 'Adadelta'], help='solver used to optimize the network')
+    train_parser.add_argument('--solver', type=str, choices=['SGD', 'Momentum', 'Nesterov', 'Adam', 'RMSprop', 'Adagrad'], help='solver used to optimize the network')
     train_parser.add_argument('--log-interval', type=int, default=100, help='number of intervals to output log infomation')
     
 
@@ -158,7 +158,15 @@ def main():
             optimizer = solver.SGD(graph.params, args.lr)
         elif args.solver == 'Momentum':
             optimizer = solver.Momentum(graph.params, args.lr, mom=0.9)
-
+        elif args.solver == 'Nesterov':
+            optimizer = solver.Nesterov(graph.params, args.lr, mom=0.9)
+        elif args.solver == 'Adagrad':
+            optimizer = solver.Adagrad(graph.params, args.lr)
+        elif args.solver == 'Adam':
+            optimizer = solver.Adam(graph.params, args.lr)
+        elif args.solver == 'RMSprop':
+            optimizer = solver.RMSprop(graph.params, args.lr)
+    
         train(args, model, (train_im, train_lb), (val_im, val_lb), smaxloss, optimizer)
         print(f"{'='*30}Training End{'='*30}")
         

@@ -246,20 +246,14 @@ class BatchNorm2d(Operation):
         self.moving_var = np.ones((1,1,1,num_features))
 
     def forward(self):
-        assert len(self.x.top.shape) in (2, 4)
+        assert len(self.x.top.shape) == 4, 'The dimension must be BxHxWxC'
 
         if self.training:
-            if len(self.x.top.shape) == 4:
-                self.moving_mean = np.zeros((1,1,1,self.num_features))
-                self.moving_var = np.ones((1,1,1,self.num_features))
-                self.mu = self.x.top.mean(axis=(0,1,2), keepdims=True)
-                self.var = self.x.top.var(axis=(0,1,2), keepdims=True)
-            else:
-                self.moving_mean = np.zeros((1,self.num_features))
-                self.moving_var = np.ones((1,self.num_features))
-                self.mu = self.x.top.mean(axis=0)
-                self.var = self.x.top.var(axis=0)
-
+            self.moving_mean = np.zeros((1,1,1,self.num_features))
+            self.moving_var = np.ones((1,1,1,self.num_features))
+            self.mu = self.x.top.mean(axis=(0,1,2), keepdims=True)
+            self.var = self.x.top.var(axis=(0,1,2), keepdims=True)
+        
             self.x_norm = (self.x.top - self.mu) / np.sqrt(self.var + self.eps)
             self.top = self.gamma.top * self.x_norm + self.beta.top
 
