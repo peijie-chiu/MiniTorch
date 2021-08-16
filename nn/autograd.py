@@ -3,32 +3,14 @@
 # do automatic differentiation
 ########################################################
 import numpy as np
-from nn.graph import values, params, ops
+from nn import graph
 from nn.container import Module
-
-
-# Values (Inputs)
-class Value():
-    def __init__(self):
-        values.append(self)
-
-    def set(self,value):
-        self.top = np.float32(value).copy()
-
-# Parameters (Weights we want to learn)
-class Param():
-    def __init__(self):
-        params.append(self)
-
-    def set(self,value):
-        self.top = np.float32(value).copy()
-
 
 ################## Operations ##################
 class Operation(Module):
     def __init__(self):
-        if self not in ops:
-            ops.append(self)
+        if self not in graph._default_graph.ops:
+            graph._default_graph.ops.append(self)
 
     def forward(self):
         raise Exception("Not Implemented")
@@ -39,7 +21,7 @@ class Operation(Module):
 
 # Add layer (x + y) where y is same shape as x or is 1-D
 class Add(Operation):
-    def __init__(self,x,y):
+    def __init__(self, x, y):
         super().__init__()
         self.x = x
         self.y = y
@@ -48,10 +30,10 @@ class Add(Operation):
         self.top = self.x.top + self.y.top
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             self.x.grad = self.x.grad + self.grad
 
-        if self.y in ops or self.y in params:
+        if self.y in graph._default_graph.ops or self.y in graph._default_graph.variables:
             if len(self.y.top.shape) < len(self.grad.shape):
                 ygrad = np.sum(self.grad,axis=tuple(range(len(self.grad.shape)-1)))
             else:
@@ -70,23 +52,23 @@ class Matmul(Operation):
         self.top = np.matmul(self.x.top,self.y.top)
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             self.x.grad = self.x.grad + np.matmul(self.y.top,self.grad.T).T
-        if self.y in ops or self.y in params:
+        if self.y in graph._default_graph.ops or self.y in graph._default_graph.variables:
             self.y.grad = self.y.grad + np.matmul(self.x.top.T,self.grad)
 
 
 # Rectified Linear Unit Activation            
 class RELU(Operation):
     def __init__(self,x):
-        ops.append(self)
+        super().__init__()
         self.x = x
 
     def forward(self):
         self.top = np.maximum(self.x.top,0)
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             self.x.grad = self.x.grad + self.grad * (self.top > 0)
 
 
@@ -100,7 +82,7 @@ class Mean(Operation):
         self.top = np.mean(self.x.top)
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             self.x.grad = self.x.grad + self.grad*np.ones_like(self.x.top) / np.float32(np.prod(self.x.top.shape))
 
 
@@ -124,7 +106,7 @@ class Smaxloss(Operation):
         self.save = yE
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             truey = np.int64(self.y.top)
             self.save[range(len(truey)),truey] = self.save[range(len(truey)),truey] - 1.
             self.x.grad = self.x.grad + np.expand_dims(self.grad,-1)*self.save
@@ -157,7 +139,7 @@ class Down(Operation):
         self.top = self.x.top[:,::self.factor,::self.factor,:]
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             grd = np.zeros_like(self.x.top)
             grd[:,::self.factor,::self.factor,:] = self.grad
             self.x.grad = self.x.grad + grd
@@ -173,7 +155,7 @@ class Flatten(Operation):
         self.top = np.reshape(self.x.top,[self.x.top.shape[0],-1])
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             self.x.grad = self.x.grad + np.reshape(self.grad,self.x.top.shape)
 
 
@@ -194,7 +176,7 @@ class Dropout(Operation):
             self.top = self.x.top
 
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             self.x.grad = self.x.grad + self.grad * self.r
 
 
@@ -211,13 +193,14 @@ class Maxpool2d(Operation):
         same_size = self.kernel_size == self.stride
         tiles = H % self.kernel_size == 0 and W % self.kernel_size  == 0
 
-        if same_size and tiles:
-            self.x_reshaped = self.x.top.reshape(B, H // self.kernel_size, self.kernel_size,
+        assert same_size and tiles, "Please padding your input so that they have even dimension"
+        
+        self.x_reshaped = self.x.top.reshape(B, H // self.kernel_size, self.kernel_size,
                          W // self.kernel_size, self.kernel_size, C) 
-            self.top = self.x_reshaped.max(axis=2).max(axis=3)
-
+        self.top = self.x_reshaped.max(axis=2).max(axis=3)
+    
     def backward(self):
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
             xgrad_reshaped = np.zeros_like(self.x_reshaped)
             out_newaxis = self.top[:, :, np.newaxis, :, np.newaxis, :]
             mask = (self.x_reshaped == out_newaxis)
@@ -232,18 +215,16 @@ class Maxpool2d(Operation):
 
 # 2d bactch normalization layer
 class BatchNorm2d(Operation):
-    def __init__(self, x, num_features, gamma, beta, eps=1e-5, momentum=0.1, affine=True):
+    def __init__(self, x, gamma, beta, eps=1e-5, momentum=0.1):
         super().__init__()
         self.x = x
-        self.num_features = num_features
         self.gamma = gamma
         self.beta = beta
         self.eps = eps
         self.momentum = momentum
-        self.affine = affine
 
-        self.moving_mean = np.zeros((1,1,1,num_features))
-        self.moving_var = np.ones((1,1,1,num_features))
+        self.moving_mean = np.zeros((1,1,1,self.gamma.shape[-1]))
+        self.moving_var = np.ones((1,1,1,self.gamma.shape[-1]))
 
     def forward(self):
         assert len(self.x.top.shape) == 4, 'The dimension must be BxHxWxC'
@@ -271,16 +252,16 @@ class BatchNorm2d(Operation):
         dvar = np.sum(dx_norm * x_mu, axis=(0,1,2), keepdims=True) * -.5 * std_inv**3
         dmu = np.sum(dx_norm * -std_inv, axis=(0,1,2), keepdims=True) + dvar * np.mean(-2. * x_mu, axis=(0,1,2), keepdims=True)
 
-        if self.x in ops or self.x in params:
+        if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables:
              xgrad = (dx_norm * std_inv) + (dvar * 2 * x_mu / (B*W*H)) + (dmu / (B*W*H))
              self.x.grad += xgrad 
 
-        if self.gamma in ops or self.gamma in params:
+        if self.gamma in graph._default_graph.ops or self.gamma in graph._default_graph.variables:
             gamma_grad = np.sum(self.grad * self.x_norm, axis=(0,1,2), keepdims=True)
             self.gamma.grad += gamma_grad
 
 
-        if self.beta in ops or self.beta in params:
+        if self.beta in graph._default_graph.ops or self.beta in graph._default_graph.variables:
             beta_grad = np.sum(self.grad, axis=(0,1,2), keepdims=True) 
             self.beta.grad += beta_grad
 
@@ -344,8 +325,8 @@ class Conv2d(Operation):
     def backward(self):
          ygrad = self.grad.reshape([-1, self.C2])
 
-         if self.x in ops or self.x in params: 
-             H_padded, W_padded = self.H + 2*self.pad, self.W + 2*self.pad
+         if self.x in graph._default_graph.ops or self.x in graph._default_graph.variables: 
+             H_padded, W_padded = self.H + 2 * self.pad, self.W + 2 * self.pad
              xgrad = np.zeros((self.B, H_padded, W_padded, self.C1))
              i, j, m = self.im2col_indices()
              kcrop = self.k.top.reshape(-1, self.C2)
@@ -358,7 +339,7 @@ class Conv2d(Operation):
 
              self.x.grad += xgrad
             
-         if self.k in ops or self.k in params:
+         if self.k in graph._default_graph.ops or self.k in graph._default_graph.variables:
              i, j, m = self.im2col_indices()
              x_padded = np.pad(self.x.top, ((0, 0), (self.pad, self.pad), (self.pad, self.pad), (0, 0)), mode='constant')
              xcrop = x_padded[:,i,j,m].transpose(1,2,0).reshape(self.KH * self.KW * self.C1, -1)

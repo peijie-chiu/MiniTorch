@@ -1,3 +1,4 @@
+import numpy as np
 import nn.autograd as autograd
 from nn.container import Module
 
@@ -27,6 +28,9 @@ class SmaxCELoss(Module):
 
         return y
 
+def accuracy(y_pred, y_true):
+    y_pred = np.argmax(y_pred, axis=1)
+    return (y_pred == y_true).mean()
 
 # Accuracy
 class Accuracy(Module):

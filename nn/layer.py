@@ -1,20 +1,12 @@
 import numpy as np
 import nn.autograd as autograd
-from nn.container import Module
+from nn.container import Module, Variable
+
 
 # Init Weights
 def xavier(shape):
-    sq = np.sqrt(3.0/np.prod(shape[:-1]))
+    sq = np.sqrt(3.0 / np.prod(shape[:-1]))
     return np.random.uniform(-sq,sq,shape)
-
-
-# The Placeholder for Inputs
-class Tensor(autograd.Value):
-    def __init__(self):
-        super().__init__()
-
-    def set(self, value):
-        return super().set(value) 
 
 
 ##################### Layers #############################
@@ -33,11 +25,8 @@ class Linear(Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.w = autograd.Param()
-        self.b = autograd.Param()
-        
-        self.w.set(xavier((in_features, out_features)))
-        self.b.set(np.zeros((out_features)))           
+        self.w = Variable(xavier((in_features, out_features)))
+        self.b = Variable(np.zeros((out_features)))        
 
     def forward(self, x):
         x = autograd.Matmul(x, self.w)
@@ -69,12 +58,10 @@ class Conv2d(Module):
         self.bias = bias
         self.padding = padding
 
-        self.k = autograd.Param()
-        self.k.set(xavier((kernel_size, kernel_size, in_channels, out_channels)))
+        self.k = Variable(xavier((kernel_size, kernel_size, in_channels, out_channels)))
         
         if bias:
-            self.b = autograd.Param()
-            self.b.set(np.zeros((self.out_channels)))
+            self.b = Variable(np.zeros((self.out_channels)))
 
     def forward(self, x):
         x = autograd.Conv2d(x, self.k, self.stride, self.padding)
@@ -147,27 +134,17 @@ class Dropout(Module):
 
 
 class BatchNorm2d(Module):
-    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True):
+    def __init__(self, num_features, eps=1e-5, momentum=0.1):
         super().__init__()
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
-        self.affine=affine
 
-        self.gamma = autograd.Param()
-        self.beta = autograd.Param()
-        self.gamma.set(np.ones((1,1,1,self.num_features)))
-        self.beta.set(np.zeros((1,1,1,self.num_features)))
+        self.gamma = Variable(np.ones((1,1,1,self.num_features)))
+        self.beta = Variable(np.zeros((1,1,1,self.num_features)))
 
     def forward(self, x):
-        # if len(x.top.shape) == 4:
-        #     self.gamma.set(np.ones((1,1,1,self.num_features)))
-        #     self.beta.set(np.zeros((1,1,1,self.num_features)))
-        # else:
-        #     self.gamma.set(np.ones((1,self.num_features)))
-        #     self.beta.set(np.ones((1,self.num_features)))
-            
         return autograd.BatchNorm2d(x, self.num_features, self.gamma, self.beta, self.eps, self.momentum, self.affine)
 
     def __str__(self):
-        return f"{self.name}(num_features={self.num_features}, eps={self.eps}, momentum={self.momentum}, affine={self.affine})"
+        return f"{self.name}(num_features={self.num_features}, eps={self.eps}, momentum={self.momentum})"
