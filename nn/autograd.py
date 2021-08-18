@@ -223,15 +223,13 @@ class BatchNorm2d(Operation):
         self.eps = eps
         self.momentum = momentum
 
-        self.moving_mean = np.zeros((1,1,1,self.gamma.shape[-1]))
-        self.moving_var = np.ones((1,1,1,self.gamma.shape[-1]))
+        self.moving_mean = np.zeros((1,1,1,self.gamma.top.shape[-1]))
+        self.moving_var = np.ones((1,1,1,self.gamma.top.shape[-1]))
 
     def forward(self):
         assert len(self.x.top.shape) == 4, 'The dimension must be BxHxWxC'
 
         if self.training:
-            self.moving_mean = np.zeros((1,1,1,self.num_features))
-            self.moving_var = np.ones((1,1,1,self.num_features))
             self.mu = self.x.top.mean(axis=(0,1,2), keepdims=True)
             self.var = self.x.top.var(axis=(0,1,2), keepdims=True)
         

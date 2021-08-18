@@ -144,7 +144,7 @@ class BatchNorm2d(Module):
         self.beta = Variable(np.zeros((1,1,1,self.num_features)))
 
     def forward(self, x):
-        return autograd.BatchNorm2d(x, self.num_features, self.gamma, self.beta, self.eps, self.momentum, self.affine)
+        return autograd.BatchNorm2d(x, self.gamma, self.beta, self.eps, self.momentum)
 
     def __str__(self):
         return f"{self.name}(num_features={self.num_features}, eps={self.eps}, momentum={self.momentum})"
