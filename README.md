@@ -56,7 +56,7 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
  
 <!-- ![](imgs/Nodes.png?v=4&s=100) -->
 <p align="center">
-     <img src="imgs/Nodes.png" width="300px" height="300px">
+     <img src="imgs/Nodes.png" width="400px" height="400px">
 </p>
 
 5. Every node object is going to have a member element n.top which will be the value of its "output" 
@@ -67,13 +67,13 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 8. In Backward, we go through the list of node in a reverse order and call the **backward** function for each operation node to compute the gradient automatically (We only computes grads for params and ops)
 
 <p align="center">
-     <img src="imgs/ForwardBackWard.png" width="300px" height="300px">
+     <img src="imgs/ForwardBackWard.png" width="400px" height="400px">
 </p>
 
 9. For each Operation, we only need to specify how **forward** and **backward** is corerctly constructed. 
 
 <p align="center">
-     <img src="imgs/comGraph.png" width="300px" height="300px">
+     <img src="imgs/comGraph.png" width="400px" height="400px">
 </p>
 
 
