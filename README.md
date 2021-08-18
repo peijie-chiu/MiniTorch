@@ -17,7 +17,7 @@ This repository aims to build a **Deep Learning Framework** for (Convolutional) 
 8. The **graph.py** contains the graph we build for the neural network and the session we use to actually run the computation.
 9. The **.ipynb** contains the script to run the experiment. 
 
-### We also provide two demos using Mnist Dataset:1.feedforard neural network(MLP.ipynb); 2.Convolutional neural network(ConvNet.ipynb) !
+#### We also provide two demos using Mnist Dataset:1.feedforard neural network(MLP.ipynb); 2.Convolutional neural network(ConvNet.ipynb) !
 
 ## To Run The Code (updated)
 1. Initialize the graph by instancializing the **Graph** object and calling **as_default()**
